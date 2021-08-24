@@ -1,0 +1,62 @@
+// Air quality - pm2.5
+{
+  "d": {
+    "Battery_Voltage": "2.96 V",
+    "Device_Type": "Air Quality PM2.5",
+    "Internal_State": "False",
+    "Radio_Signal_Strength": "-52 db",
+    "Sensor_ID": "882193",
+    "Sensor_Number": "882193",
+    "Time_of_Reading": "2021-08-22T04:19:00+00:00",
+    "Units": [
+      "ug/m^3",
+      "ug/m^3",
+      "ug/m^3"
+    ],
+    "Values": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+},
+// Temp sensor
+{
+  "d": {
+    "Battery_Voltage": "3.12 V",
+    "Device_Type": "Temperature",
+    "Internal_State": "False",
+    "Radio_Signal_Strength": "-48 db",
+    "Sensor_ID": "848270",
+    "Sensor_Number": "848270",
+    "Time_of_Reading": "2021-08-22T04:16:50+00:00",
+    "Units": [
+      "deg. C"
+    ],
+    "Values": [
+      22.9
+    ]
+  }
+},
+// CO Meter
+{
+  "d": {
+    "Battery_Voltage": "3.05 V",
+    "Device_Type": "CO Meter",
+    "Internal_State": "False",
+    "Radio_Signal_Strength": "-57 db",
+    "Sensor_ID": "882187",
+    "Sensor_Number": "882187",
+    "Time_of_Reading": "2021-08-22T04:15:33+00:00",
+    "Units": [
+      "deg. C",
+      "PPM",
+      "PPM"
+    ],
+    "Values": [
+      23.6,
+      0.0,
+      0.0
+    ]
+  }
+}

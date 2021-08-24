@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	//	"io/ioutil"
 	"time"
+	//	"io/ioutil"
 	log "github.com/sirupsen/logrus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-//	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 //	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/braxton9460/monnit-mqtt-exporter/internal/config"
+	"github.com/braxton9460/monnit-mqtt-exporter/internal/sensors"
 )
 
 var (
@@ -50,22 +51,27 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 func main() {
 	flag.Parse()
 	log.SetFormatter(&log.JSONFormatter{})
+	log.SetLevel(log.TraceLevel)
 	c := make(chan os.Signal, 1)
+	errorChan := make(chan error, 1)
 	cfg, err := config.LoadConfig(*configFlag)
 	//if *versionFlag {
 	//	showVersion()
 	//	os.Exit(0)
 	//}
 
+	collector := sensors.NewCollector()
+	ingest := sensors.NewIngest(collector)
+
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(cfg.MQTT.Server)
 	opts.SetClientID(generateClientID())
-	opts.SetDefaultPublishHandler(messagePubHandler)
+	//opts.SetDefaultPublishHandler(messagePubHandler)
+	opts.SetDefaultPublishHandler(ingest.MessageHandler(errorChan)) // Follow this <- it is the path for all metrics
 	opts.OnConnect = connectHandler
 	opts.SetAutoReconnect(true)
 	opts.OnConnectionLost = connectLostHandler
 	client := mqtt.NewClient(opts)
-	errorChan := make(chan error, 1)
 
 	for {
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -76,14 +82,12 @@ func main() {
 		}
 		time.Sleep(10 * time.Second)
 	}
-
-	//if token := client.Connect(); token.Wait() && token.Error() != nil {
-	//	log.Panic(token.Error())
-	//}
-	//sub(client)
+	// Subscribe to the topics
 	token := client.Subscribe(cfg.MQTT.TopicPath, cfg.MQTT.Qos, nil)
 	token.Wait()
 
+	// Fire up prom
+	// This also serves to keep the app running & subscriptions connected
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		err = http.ListenAndServe(getListenAddress(), nil)
@@ -91,7 +95,9 @@ func main() {
 			log.Fatal("Fatal error while serving http")
 		}
 	}()
-
+	// Register prom metrics
+//	sensors.RegisterMetrics()
+	prometheus.MustRegister(collector)
 	for {
 		select {
 		case <-c:
@@ -111,16 +117,8 @@ func generateClientID() string {
 	return fmt.Sprintf("%s-%d", host, pid)
 }
 
-//func sub(client mqtt.Client) {
-////	topic := "MQTTSensor/type/+/id/+"
-//	topic := "MQTTSensor/type/2/id/848270"
-//	token := client.Subscribe(cfg.MQTT.topic, cfg.MQTT.qos, nil)
-//	token.Wait()
-//	log.Info("Subscribed to topic: %s", topic)
-//}
-
 func getListenAddress() string {
-	return fmt.Sprintf("%s:%s", "0.0.0.0", "9641")
+	return fmt.Sprintf("%s:%s", "0.0.0.0", "9851")
 }
 func showVersion() {
 	versionInfo := struct {
