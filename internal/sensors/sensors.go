@@ -12,6 +12,7 @@ import (
 func miniDescription (keys []string) map[string]*prometheus.Desc {
 	var allDescriptions map[string]*prometheus.Desc
 	allDescriptions = make(map[string]*prometheus.Desc)
+
 	for _, v := range keys {
 		help := AllMetrics[v]
 		allDescriptions[v] = prometheus.NewDesc(
@@ -37,12 +38,16 @@ func DescriptionGenerate (topic string, metric Monnit) map[string]*prometheus.De
 	case 2:
 		log.Debug("Generating descriptions for sensor type - 2")
 		sensorKeys = []string{
+			"monnit_battery_voltage",
+			"monnit_signal_strength_db",
 			"monnit_temperature_celsius",
 		}
 	// Air Quality PM2.5
 	case 102:
 		log.Debug("Generating descriptions for sensor type - 102")
 		sensorKeys = []string{
+			"monnit_battery_voltage",
+			"monnit_signal_strength_db",
 			"monnit_air_quality_pm10",
 			"monnit_air_quality_pm25",
 			"monnit_air_quality_pm1",
@@ -51,6 +56,8 @@ func DescriptionGenerate (topic string, metric Monnit) map[string]*prometheus.De
 	case 116:
 		log.Debug("Generating descriptions for sensor type - 116")
 		sensorKeys = []string{
+			"monnit_battery_voltage",
+			"monnit_signal_strength_db",
 			"monnit_temperature_celsius",
 			"monnit_carbon_monoxide_ppm",
 			"monnit_carbon_monoxide_ppm_avg",
@@ -60,10 +67,13 @@ func DescriptionGenerate (topic string, metric Monnit) map[string]*prometheus.De
 }
 
 // Called from Collect determines type of sensors which has specific metric reporting requirements / abilities & act accordingly on those
-func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
+func MetricGenerate (topic string, item CacheItem, friendlyName string) []prometheus.Metric {
 	//log.Trace("Entered MetricGenerate function")
 	sp := strings.Split(topic, "/")
 	sensorTypeId, err := strconv.Atoi(sp[2])
+	batteryVolts, _ := strconv.ParseFloat(strings.Split(item.Metric.Junk.BatteryVolts, " ")[0], 64)
+	signalStrength, _ := strconv.ParseFloat(strings.Split(item.Metric.Junk.Signal, " ")[0], 64)
+
 	if err != nil {
 		log.Error("Failed to convert sensorTypeId type in MetricGenerate")
 	}
@@ -82,10 +92,26 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 //		log.Trace("Setting prometheus temperature gauge to: ", values)
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
 			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_battery_voltage"],
+				prometheus.GaugeValue,
+				batteryVolts,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_signal_strength_db"],
+				prometheus.GaugeValue,
+				signalStrength,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
 				item.Descriptions["monnit_temperature_celsius"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[0],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 	// Air Quality PM2.5
@@ -93,10 +119,26 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 		log.Debug("Generating metric for sensor type - 102")
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
 			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_battery_voltage"],
+				prometheus.GaugeValue,
+				batteryVolts,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_signal_strength_db"],
+				prometheus.GaugeValue,
+				signalStrength,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
 				item.Descriptions["monnit_air_quality_pm1"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[0],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
@@ -104,7 +146,7 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 				item.Descriptions["monnit_air_quality_pm25"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[1],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
@@ -112,7 +154,7 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 				item.Descriptions["monnit_air_quality_pm10"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[2],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 	// CO Meter
@@ -120,10 +162,26 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 		log.Debug("Generating metric for sensor type - 116")
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
 			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_battery_voltage"],
+				prometheus.GaugeValue,
+				batteryVolts,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
+				item.Descriptions["monnit_signal_strength_db"],
+				prometheus.GaugeValue,
+				signalStrength,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
+			),
+		))
+		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
+			t, prometheus.MustNewConstMetric(
 				item.Descriptions["monnit_temperature_celsius"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[0],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
@@ -131,7 +189,7 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 				item.Descriptions["monnit_carbon_monoxide_ppm"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[1],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 		allMetrics = append(allMetrics, prometheus.NewMetricWithTimestamp(
@@ -139,7 +197,7 @@ func MetricGenerate (topic string, item CacheItem) []prometheus.Metric {
 				item.Descriptions["monnit_carbon_monoxide_ppm_avg"],
 				prometheus.GaugeValue,
 				item.Metric.Junk.Values[2],
-				sp[4], sp[2], item.Metric.Junk.DeviceType,
+				sp[4], sp[2], item.Metric.Junk.DeviceType, friendlyName,
 			),
 		))
 	}

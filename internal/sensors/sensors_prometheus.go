@@ -2,7 +2,8 @@ package sensors
 
 import (
 	"time"
-	//"fmt"
+	"strings"
+	"strconv"
 	log "github.com/sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 //	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -12,6 +13,8 @@ import (
 var (
 	// metric name: metric help
 	AllMetrics = map[string]string{
+		"monnit_battery_voltage": "Battery volts reported by the sensor",
+		"monnit_signal_strength_db": "Radio signal strength reported by the sensor",
 		"monnit_temperature_celsius": "Temperature reported by the sensor",
 		"monnit_carbon_monoxide_ppm": "Carbon Monoxide reported by the sensor",
 		"monnit_carbon_monoxide_ppm_avg": "Carbon Monoxide 8hr weighted average reported by the sensor",
@@ -23,6 +26,7 @@ var (
 		"sensorId",
 		"sensorTypeId",
 		"sensorType",
+		"sensorName",
 	}
 	//Temperature = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	//	Name: "monnit_temperature_celsius",
@@ -48,9 +52,10 @@ type Collector interface {
 type CacheCollector struct {
 	cache *cache.Cache
 	metricDescriptions []*prometheus.Desc
+	sensorsConfig map[int]string
 }
 
-func NewCollector() Collector {
+func NewCollector(sensorsConfig map[int]string) Collector {
 	var allDescriptions []*prometheus.Desc
 
 	for k, v := range AllMetrics {
@@ -62,6 +67,7 @@ func NewCollector() Collector {
 	return &CacheCollector{
 		cache: cache.New(24*time.Hour, 10*time.Minute),
 		metricDescriptions: allDescriptions,
+		sensorsConfig: sensorsConfig,
 	}
 }
 
@@ -88,7 +94,8 @@ func (c *CacheCollector) Collect(ch chan<- prometheus.Metric) {
 	//log.Trace("Entered Collect function")
 
 	for topic, metricRaw := range c.cache.Items() {
-		for _, i := range MetricGenerate(topic, metricRaw.Object.(CacheItem)) {
+		friendlyName := fetchFriendlyName(topic, c.sensorsConfig)
+		for _, i := range MetricGenerate(topic, metricRaw.Object.(CacheItem), friendlyName) {
 			ch <- i
 		}
 	}
@@ -102,6 +109,7 @@ func (c *CacheCollector) Collect(ch chan<- prometheus.Metric) {
 
 func (c *CacheCollector) Record(topic string, message Monnit) {
 	log.Debug("Storing message in cache for topic: ", topic)
+
 	item := CacheItem{
 		Metric: message,
 		Descriptions: DescriptionGenerate(topic, message),
@@ -109,6 +117,17 @@ func (c *CacheCollector) Record(topic string, message Monnit) {
 	c.cache.Set(topic, item, cache.DefaultExpiration)
 	//allcache := c.cache.Items()
 	//fmt.Println(allcache)
+}
+
+func fetchFriendlyName(topic string, configs map[int]string) string {
+	sp := strings.Split(topic, "/")
+	sensorId, _ := strconv.Atoi(sp[4])
+
+	var friendlyName = ""
+	if configs[sensorId] != "" {
+		friendlyName = configs[sensorId]
+	}
+	return friendlyName
 }
 
 func RegisterMetrics() {

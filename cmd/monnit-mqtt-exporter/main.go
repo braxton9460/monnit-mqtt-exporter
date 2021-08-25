@@ -50,21 +50,22 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 
 func main() {
 	flag.Parse()
+	if *versionFlag {
+		showVersion()
+		os.Exit(0)
+	}
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.TraceLevel)
 	c := make(chan os.Signal, 1)
 	errorChan := make(chan error, 1)
 	cfg, err := config.LoadConfig(*configFlag)
-	//if *versionFlag {
-	//	showVersion()
-	//	os.Exit(0)
-	//}
 
-	collector := sensors.NewCollector()
+	collector := sensors.NewCollector(cfg.Sensors)
 	ingest := sensors.NewIngest(collector)
 
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(cfg.MQTT.Server)
+	opts.AddBroker(cfg.Exporter.Server)
 	opts.SetClientID(generateClientID())
 	//opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.SetDefaultPublishHandler(ingest.MessageHandler(errorChan)) // Follow this <- it is the path for all metrics
@@ -83,7 +84,7 @@ func main() {
 		time.Sleep(10 * time.Second)
 	}
 	// Subscribe to the topics
-	token := client.Subscribe(cfg.MQTT.TopicPath, cfg.MQTT.Qos, nil)
+	token := client.Subscribe(cfg.Exporter.Topic, cfg.Exporter.Qos, nil)
 	token.Wait()
 
 	// Fire up prom
@@ -118,21 +119,17 @@ func generateClientID() string {
 }
 
 func getListenAddress() string {
-	return fmt.Sprintf("%s:%s", "0.0.0.0", "9851")
+	return fmt.Sprintf("%s:%s", "0.0.0.0", "9850")
 }
 func showVersion() {
 	versionInfo := struct {
 		Version string
-		Commit  string
-		Date    string
 	}{
-		Version: version,
-		Commit:  commit,
-		Date:    date,
+		Version: "0.0.1",
 	}
 
 	err := json.NewEncoder(os.Stdout).Encode(versionInfo)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
